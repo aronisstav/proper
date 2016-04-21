@@ -1040,8 +1040,9 @@ options_test_() ->
 -endif.
 
 adts_test_() ->
-    [?_passes(?FORALL({X,S},{integer(),?SET()},
-                      sets:is_element(X,sets:add_element(X,S))), [20]),
+    [{timeout, 20,	% for Kostis' old laptop
+      ?_passes(?FORALL({X,S},{integer(),?SET()},
+		       sets:is_element(X,sets:add_element(X,S))), [20])},
      ?_passes(?FORALL({X,Y,D},
 		      {integer(),float(),?DICT(integer(),float())},
 		      dict:fetch(X,dict:store(X,Y,eval(D))) =:= Y), [30]),

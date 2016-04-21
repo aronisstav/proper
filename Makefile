@@ -48,7 +48,7 @@ compile:
 dialyzer: .plt/proper_plt compile
 	dialyzer -n -nn --plt $< -Wunmatched_returns ebin $(find .  -path 'deps/*/ebin/*.beam')
 
-.plt/proper_plt: .plt
+.plt/proper_plt:
 	dialyzer --build_plt --output_plt $@ --apps erts kernel stdlib compiler crypto
 
 check_escripts:
