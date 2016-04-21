@@ -197,6 +197,22 @@
 	                         {{ordset,1},proper_ordsets},
 	 {{queue,0},queue},      {{queue,1},proper_queue},
 	 {{set,0},sets},         {{set,1},proper_sets}]).
+-define(HARD_MOD_ADTS,
+	%% gb_trees:iterator and gb_sets:iterator are NOT hardcoded
+	[{{array,array,0},array},
+         {{array,array,1},proper_array},
+	 {{dict,dict,0},dict},
+         {{dict,dict,2},proper_dict},
+	 {{gb_sets,gb_set,0},gb_sets},
+         {{gb_sets,gb_set,1},proper_gb_sets},
+	 {{gb_trees,gb_tree,0},gb_trees},
+         {{gb_trees,gb_tree,2},proper_gb_trees},
+         {{orddict,orddict,2},proper_orddict},
+         {{ordset,ordset,1},proper_ordsets},
+	 {{queue,queue,0},queue},
+         {{queue,queue,1},proper_queue},
+	 {{sets,set,0},sets},
+         {{sets,set,1},proper_sets}]).
 -define(HARD_ADT_MODS,
 	[{array, [{{array,0},
 		   {{type,0,record,[{atom,0,array}]},[]}}]},
@@ -1309,6 +1325,7 @@ term_to_singleton_type(Tuple) when is_tuple(Tuple) ->
 %%	 the addition of a custom wrapper: {'from_mod',mod_name(),...}
 -spec is_instance(term(), mod_name(), abs_type()) -> boolean().
 is_instance(X, Mod, TypeForm) ->
+    %% io:format("X:~p~nMod:~p~nTypeForm~p~n", [X, Mod, TypeForm]),
     is_instance(X, Mod, TypeForm, []).
 
 -spec is_instance(term(), mod_name(), abs_type(), imm_stack()) -> boolean().
@@ -1495,6 +1512,7 @@ tuple_test(_, _Mod, _) ->
 -spec is_maybe_hard_adt(term(), mod_name(), type_name(), [abs_type()],
 			imm_stack()) -> boolean().
 is_maybe_hard_adt(X, Mod, Name, ArgForms, Stack) ->
+    %% io:format("is_maybe_hard_adt ~p~n", [Mod]),
     case orddict:find({Name,length(ArgForms)}, ?HARD_ADTS) of
 	{ok,ADTMod} ->
 	    is_custom_instance(X, Mod, ADTMod, Name, ArgForms, true, Stack);
@@ -1505,6 +1523,7 @@ is_maybe_hard_adt(X, Mod, Name, ArgForms, Stack) ->
 -spec is_custom_instance(term(), mod_name(), mod_name(), type_name(),
 			 [abs_type()], boolean(), imm_stack()) -> boolean().
 is_custom_instance(X, Mod, RemMod, Name, RawArgForms, IsRemote, Stack) ->
+    %% io:format("is_custom_instance Mod:~p RemMod:~p~n", [Mod, RemMod]),
     ArgForms = case Mod =/= RemMod of
 		   true  -> [{from_mod,Mod,A} || A <- RawArgForms];
 		   false -> RawArgForms
@@ -1582,13 +1601,19 @@ convert(_Mod, {var,_,VarName}, State, _Stack, VarDict) ->
 	{ok,RetType} -> {ok, RetType, State};
 	error        -> {error, {unbound_var,VarName}}
     end;
-convert(Mod, {remote_type,_,[{atom,_,RemMod},{atom,_,Name},ArgForms]}, State,
+convert(Mod, {remote_type,L1,[{atom,L2,RemMod},{atom,L3,Name},ArgForms]}, State,
 	Stack, VarDict) ->
-    case prepare_for_remote(RemMod, Name, length(ArgForms), State) of
-	{ok,NewState} ->
-	    convert_custom(Mod,RemMod,Name,ArgForms,NewState,Stack,VarDict);
-	{error,_Reason} = Error ->
-	    Error
+    %% io:format("convert RemMod:~p Name:~p~n", [RemMod, Name]),
+    case orddict:find({RemMod, Name, length(ArgForms)}, ?HARD_MOD_ADTS) of
+        {ok, ADTMod} ->
+            convert(Mod, {remote_type,L1,[{atom,L2,ADTMod},{atom,L3,Name},ArgForms]}, State, Stack, VarDict);
+        error ->
+            case prepare_for_remote(RemMod, Name, length(ArgForms), State) of
+                {ok,NewState} ->
+                    convert_custom(Mod,RemMod,Name,ArgForms,NewState,Stack,VarDict);
+                {error,_Reason} = Error ->
+                    Error
+            end
     end;
 convert(_Mod, {atom,_,Atom}, State, _Stack, _VarDict) ->
     {ok, {simple,proper_types:exactly(Atom)}, State};
